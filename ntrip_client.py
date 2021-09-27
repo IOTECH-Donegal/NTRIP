@@ -7,41 +7,70 @@ Connection: close\r\n
 \r\n
 """
 
+import sys
 import socket
+import time
+import textwrap
 import base64
 
 ntrip_server = 'rtk2go.com'
 ntrip_port = 2101
-ntrip_user_str = 'john.oraw@hotmail.com'
-ntrip_caster = ''
-ntrip_useragent = 'IOTECH NTRIP Client'
-ntrip_mountpoint = 'Umricam'
-ntrip_mount_point_string = "Ntrip-Version: Ntrip/2.0\r\n"
-ntrip_user = base64.b64encode(bytes(ntrip_user_str, 'utf-8')).decode("utf-8")
-ntrip_mount_point_str = "GET %s HTTP/1.1\r\nUser-Agent: %s\r\nAuthorization: Basic %s\r\n" % (ntrip_mountpoint, ntrip_useragent, ntrip_user)
-
-host_string = "Host: %s:%i\r\n" % (ntrip_caster,ntrip_port)
-mount_point = "Ntrip-Version: Ntrip/2.0\r\n"
-ntrip_mount_point_str += host_string
-ntrip_mount_point_str += mount_point
-
-
-
-
+ntrip_mountpoint = '/Umricam'
+ntrip_mount_point_str = "GET %s HTTP/1.0\r\n" % (ntrip_mountpoint)
+ntrip_mount_point_str +="User-Agent: IOTECH NTRIP Client" + "\r\n"
+ntrip_mount_point_str +="Accept: */*" + "\r\n"
+ntrip_mount_point_str +="Connection: close" + "\r\n" + "\r\n"
+ntrip_mount_point_bytes = bytes(ntrip_mount_point_str, 'UTF-8')
 debug = 1
+
+
+def convert_int_to_byte(int):
+    return int.to_bytes(1, 'little', signed=False)
+
 
 def mountpoint():
     if debug == 1:
-        print(f'NTRIP server: {ntrip_server}:{ntrip_port}')
-        print(f'NTRIP mount point: {ntrip_mountpoint}')
-        print(f'NTRIP user: {ntrip_user_str} in base64= {ntrip_user}')
-        print(f'NTRIP mount point HTTP string {ntrip_mount_point_str}')
+        print(ntrip_mount_point_str)
+        print_bytes = ":".join("{:02x}".format(ord(c)) for c in ntrip_mount_point_str)
+        print('\n'.join(textwrap.wrap(print_bytes, 48)))
 
 
 
 
-#socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#socket.settimeout(10)
-#socket.sendall(etMountPointBytes())
+def go():
+
+    line = ''
+    header_length = 0
+
+    while True:
+        # Set up for communications
+        ntrip_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ntrip_socket.connect((ntrip_server, ntrip_port))
+        # Send the query
+        ntrip_socket.sendall(ntrip_mount_point_bytes)
+        # Get the response
+        time.sleep(1)
+        response_bytes = ntrip_socket.recv(4096)
+        # Extract the header from the byte string
+        response_string = response_bytes.decode("latin-1").split("\r\n")
+        # Check to see if valid
+        for line in response_string:
+            if line.find("401 Unauthorized") >= 0:
+                sys.stderr.write("Unauthorized\n")
+                sys.exit(1)
+            elif line.find("404 Not Found") >= 0:
+                sys.stderr.write("No Mount Point\n")
+                sys.exit(2)
+            elif line.find("ICY 200 OK") >= 0:
+                print(line)
+                header_length = len(line)
+
+        # Remove the CR LF at the and of the header, payload is an integer array
+        payload = response_bytes[header_length + 2:]
+        print(payload[0])
+
+
+
 
 mountpoint()
+go()
