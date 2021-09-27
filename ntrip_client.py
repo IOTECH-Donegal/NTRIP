@@ -35,8 +35,6 @@ def mountpoint():
         print('\n'.join(textwrap.wrap(print_bytes, 48)))
 
 
-
-
 def go():
 
     line = ''
@@ -67,7 +65,8 @@ def go():
 
         # Remove the CR LF at the and of the header, payload is an integer array
         payload = bytearray(response_bytes[header_length + 2:])
-        print(type(payload))
+        # Check for RTCM corrections
+        byte1 = payload[0].to_bytes(1, 'little', signed=False)
 
 
 
