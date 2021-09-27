@@ -66,8 +66,8 @@ def go():
                 header_length = len(line)
 
         # Remove the CR LF at the and of the header, payload is an integer array
-        payload = response_bytes[header_length + 2:]
-        print(payload[0])
+        payload = bytearray(response_bytes[header_length + 2:])
+        print(type(payload))
 
 
 
