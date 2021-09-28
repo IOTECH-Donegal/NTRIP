@@ -13,6 +13,10 @@ import time
 import textwrap
 import base64
 
+# Utilities used by all RTCM tools
+from rtcm.RTCMParser import RTCMParser
+myRTCM = RTCMParser()
+
 ntrip_server = 'rtk2go.com'
 ntrip_port = 2101
 ntrip_mountpoint = '/Umricam'
@@ -24,21 +28,17 @@ ntrip_mount_point_bytes = bytes(ntrip_mount_point_str, 'UTF-8')
 debug = 1
 
 
-def convert_int_to_byte(int):
-    return int.to_bytes(1, 'little', signed=False)
-
-
 def mountpoint():
+    print('Mountpoint Web Service Query:')
     if debug == 1:
         print(ntrip_mount_point_str)
         print_bytes = ":".join("{:02x}".format(ord(c)) for c in ntrip_mount_point_str)
+
+        print('Mountpoint Web Service Query in Hex:')
         print('\n'.join(textwrap.wrap(print_bytes, 48)))
 
 
-
-
 def go():
-
     line = ''
     header_length = 0
 
@@ -50,8 +50,9 @@ def go():
         ntrip_socket.sendall(ntrip_mount_point_bytes)
         # Get the response
         time.sleep(1)
-        response_bytes = ntrip_socket.recv(4096)
-        # Extract the header from the byte string
+        # At present, payload is c. 6KB, set buffer bigger
+        response_bytes = ntrip_socket.recv(8192)
+        # Extract the header from the byte string, do not use UTF-8, it fails on 0xd3
         response_string = response_bytes.decode("latin-1").split("\r\n")
         # Check to see if valid
         for line in response_string:
@@ -64,13 +65,25 @@ def go():
             elif line.find("ICY 200 OK") >= 0:
                 print(line)
                 header_length = len(line)
+                # The first xd3 byte should be found after the header, CR and LF
+                start_pointer = header_length + 2
+                # Check for a xd3
+                if response_bytes[start_pointer] == 211:
+                    myRTCM.rtcm_parser(response_bytes)
 
-        # Remove the CR LF at the and of the header, payload is an integer array
-        payload = response_bytes[header_length + 2:]
-        print(payload[0])
 
-
-
-
-mountpoint()
-go()
+try:
+    mountpoint()
+    go()
+except OSError as err:
+    print("OS error: {0}".format(err))
+except ValueError as err:
+    print("Value Error error: {0}".format(err))
+except KeyboardInterrupt:
+    print("\n" + "Caught keyboard interrupt, exiting")
+    exit(0)
+except:
+    print("Unexpected error:", sys.exc_info()[0])
+finally:
+    print("Exiting Main Thread")
+    exit(0)
