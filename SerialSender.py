@@ -22,11 +22,14 @@ class SerialHandler():
         )
 
     def run(self):
+        """ Do any initilization after port is opened"""
         self.SerialPort.flushInput()
 
     def write_bytes(self):
+        """ Write bytes from a class level buffer to the serial port"""
         self.SerialPort.write(self.write_buffer)
 
     def close(self):
+        """ Close the port at the end of a session"""
         self.SerialPort.close()
 

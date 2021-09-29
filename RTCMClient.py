@@ -21,9 +21,9 @@ try:
     myRTCM.create_mount_point()
     # Main loop
     while True:
-        print('\n')
         print(f'Running web query at: {datetime.datetime.now()}')
         if myRTCM.connect():
+            # You only need to parse to debug
             myRTCM.rtcm_parser()
             mySerialPort.write_buffer = myRTCM.response_bytes
             mySerialPort.write_bytes()
