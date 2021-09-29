@@ -2,6 +2,7 @@ import textwrap
 import socket
 import time
 import sys
+from socket import SHUT_RDWR
 
 
 class RTCMParser():
@@ -30,7 +31,7 @@ class RTCMParser():
             print('\n'.join(textwrap.wrap(print_bytes, 48)))
             print('\n')
 
-    def run(self):
+    def connect(self):
         # Set up for communications
         ntrip_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ntrip_socket.connect((self.ntrip_server, self.ntrip_port))
@@ -61,6 +62,9 @@ class RTCMParser():
                 sys.exit(2)
             else:
                 print(line)
+        # Shut down the connection
+        ntrip_socket.shutdown(SHUT_RDWR)
+        ntrip_socket.close()
 
     def rtcm_parser(self):
         length_of_buffer = len(self.response_bytes)
@@ -93,10 +97,10 @@ class RTCMParser():
                 message_id_int = int.from_bytes(byte4 + byte5, "big") / 16
                 if self.debug:
                     print(f'Length = {length_of_payload} derived from {byte2.hex()} and {byte3.hex()}')
-
                 print(f'RTCM3: Received {str(message_id_int)} derived from {byte4.hex()} and {byte5.hex()}')
-                print('')
+
             # Move the start pointer to the end of the message, plus the CRC
             start_pointer = end_pointer + 3
             # Read byte1 to get started again
             byte1 = rtcm_payloads[start_pointer:start_pointer + 1]
+
